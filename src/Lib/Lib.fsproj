@@ -5,13 +5,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Elmish\prelude.fs" />
+    <Compile Include="Elmish\cmd.fs" />
+    <Compile Include="Elmish\ring.fs" />
+    <Compile Include="Elmish\program.fs" />
     <Compile Include="Html.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Component.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Elmish" Version="3.0.0-beta-5" />
     <PackageReference Include="Microsoft.AspNetCore.Blazor" Version="0.9.0-preview3-19154-02" />
   </ItemGroup>
 

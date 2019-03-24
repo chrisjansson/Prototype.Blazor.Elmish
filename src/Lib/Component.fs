@@ -2,8 +2,8 @@ module Component
 
 open Html
 open Microsoft.AspNetCore.Components
-open Microsoft.AspNetCore.Components;
 open Microsoft.JSInterop
+open Elmish
 
 type ComponentImpl() =
     inherit ComponentBase()
@@ -12,11 +12,10 @@ type ComponentImpl() =
     let mutable dispatchL = None
     
     override this.OnInit() =
-        let program = Elmish.Program.mkProgram App2.init App2.update App2.view
         let program =
-            { program with setState = this.SetState  }
-            
-        Elmish.Program.runWith None program 
+            Program.mkProgram App2.init App2.update App2.view
+            |> Program.withSetState this.SetState
+            |> Program.runWith None
         ()
         
     member this.SetState model dispatch =
