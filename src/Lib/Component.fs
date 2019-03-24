@@ -12,10 +12,9 @@ type ComponentImpl() =
     let mutable dispatchL = None
     
     override this.OnInit() =
-        let program =
-            Program.mkProgram App2.init App2.update App2.view
-            |> Program.withSetState this.SetState
-            |> Program.runWith None
+        Program.mkProgram App2.init App2.update App2.view
+        |> Program.withSetState this.SetState
+        |> Program.runWith None ()
         ()
         
     member this.SetState model dispatch =
