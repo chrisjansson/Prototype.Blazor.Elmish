@@ -14,7 +14,7 @@ type Program<'arg, 'model, 'msg, 'view, 'env> = private {
     update : 'msg -> 'model -> 'model * Cmd<'msg, 'env>
     subscribe : 'model -> Cmd<'msg, 'env>
     view : 'model -> Dispatch<'msg> -> 'view
-    setState : 'model -> Dispatch<'msg> -> unit
+    setState : 'model -> Dispatch<'msg> -> Async<unit>
     onError : (string*exn) -> unit
     syncDispatch: Dispatch<'msg> -> Dispatch<'msg>
 }
@@ -31,24 +31,24 @@ module Program =
         { init = init
           update = update
           view = view
-          setState = fun model -> view model >> ignore
+          setState = fun model dispatch -> async.Return ()
           subscribe = fun _ -> Cmd.none
           onError = Log.onError
           syncDispatch = id }
-
-    /// Simple program that produces only new state with `init` and `update`.
-    let mkSimple 
-        (init : 'arg -> 'model) 
-        (update : 'msg -> 'model -> 'model)
-        (view : 'model -> Dispatch<'msg> -> 'view) =
-        { init = init >> fun state -> state,Cmd.none
-          update = fun msg -> update msg >> fun state -> state,Cmd.none
-          view = view
-          setState = fun model -> view model >> ignore
-          subscribe = fun _ -> Cmd.none
-          onError = Log.onError
-          syncDispatch = id }
-
+//
+//    /// Simple program that produces only new state with `init` and `update`.
+//    let mkSimple 
+//        (init : 'arg -> 'model) 
+//        (update : 'msg -> 'model -> 'model)
+//        (view : 'model -> Dispatch<'msg> -> 'view) =
+//        { init = init >> fun state -> state,Cmd.none
+//          update = fun msg -> update msg >> fun state -> state,Cmd.none
+//          view = view
+//          setState = fun model -> view model >> ignore
+//          subscribe = fun _ -> Cmd.none
+//          onError = Log.onError
+//          syncDispatch = id }
+//
     /// Subscribe to external source of events.
     /// The subscription is called once - with the initial model, but can dispatch new messages at any time.
     let withSubscription (subscribe : 'model -> Cmd<'msg, 'env>) (program: Program<'arg, 'model, 'msg, 'view, 'env>) =
@@ -90,7 +90,7 @@ module Program =
             with onError = map program.onError }
 
     /// For library authors only: function to render the view with the latest state 
-    let withSetState (setState:'model -> Dispatch<'msg> -> unit)
+    let withSetState (setState:'model -> Dispatch<'msg> -> Async<unit>)
                      (program: Program<'arg, 'model, 'msg, 'view, 'env>) =        
         { program
             with setState = setState }
@@ -123,12 +123,12 @@ module Program =
     /// Start the program loop.
     /// arg: argument to pass to the init() function.
     /// program: program created with 'mkSimple' or 'mkProgram'.
-    let runWith (arg: 'arg) (env: 'env) (program: Program<'arg, 'model, 'msg, 'view, 'env>) =
+    let runWith (arg: 'arg) (env: 'env) (program: Program<'arg, 'model, 'msg, 'view, 'env>) = async {
         let (model,cmd) = program.init arg
         let rb = RingBuffer 10
         let mutable reentered = false
         let mutable state = model        
-        let rec dispatch msg = 
+        let rec dispatch msg = async {
             if reentered then
                 rb.Push msg
             else
@@ -138,23 +138,25 @@ module Program =
                     let msg = nextMsg.Value
                     try
                         let (model',cmd') = program.update msg state
-                        program.setState model' syncDispatch
-                        cmd' |> Cmd.exec syncDispatch env
+                        do! program.setState model' syncDispatch
+                        do! cmd' |> Cmd.exec syncDispatch env
                         state <- model'
                     with ex ->
                         program.onError (sprintf "Unable to process the message: %A" msg, ex)
                     nextMsg <- rb.Pop()
                 reentered <- false
+            }
         and syncDispatch = program.syncDispatch dispatch            
 
-        program.setState model syncDispatch
+        do! program.setState model syncDispatch
         let sub = 
             try 
                 program.subscribe model 
             with ex ->
                 program.onError ("Unable to subscribe:", ex)
                 Cmd.none
-        sub @ cmd |> Cmd.exec syncDispatch env
+        do! sub @ cmd |> Cmd.exec syncDispatch env
+        }
 
     /// Start the dispatch loop with `unit` for the init() function.
     let run (program: Program<unit, 'model, 'msg, 'view, unit>) = runWith () () program
