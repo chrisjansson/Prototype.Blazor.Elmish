@@ -1,11 +1,9 @@
 module App2
 
 // MODEL
-
-// The full application state of our todo app.
 type Model =
     {
-        Entries: Entry list
+        Entries : Entry list
         Field : string
         Uid : int
         Visibility : string
@@ -18,14 +16,14 @@ and Entry =
         Id : int
     }
 
-let emptyModel: Model =
+let emptyModel : Model =
     {
         Entries = []
         Visibility = "All"
         Field = ""
         Uid = 0
     }
-    
+
 let newEntry desc id =
     {
         Description = desc
@@ -33,13 +31,12 @@ let newEntry desc id =
         Editing = false
         Id = id
     }
-    
+
 open Elmish
 
-let init maybeModel = ( Option.defaultValue emptyModel maybeModel , Cmd.none )
+let init maybeModel = (Option.defaultValue emptyModel maybeModel, Cmd.none)
 
 // UPDATE
-
 
 (**  Users of our app can trigger messages by clicking and typing. These
 messages are fed into the `update` function as they occur, letting us react
@@ -61,9 +58,9 @@ type Msg =
 let update msg model =
     match msg with
     | NoOp ->
-            ( model, Cmd.none )
+            (model, Cmd.none)
     | Add ->
-            ( { model with
+            ({ model with
                     Uid = model.Uid + 1
                     Field = ""
                     Entries =
@@ -74,44 +71,41 @@ let update msg model =
               }
             , Cmd.none)
     | UpdateField str ->
-            ( { model with Field = str } , Cmd.none )
-    | EditingEntry (id, isEditing) ->
+            ({ model with Field = str }, Cmd.none)
+    | EditingEntry(id, isEditing) ->
         let updateEntry t =
             if t.Id = id then
                 { t with Editing = isEditing }
             else
                 t
 
-        //TODO: what happens here?
-//        let focus = Dom.focus ("todo-" ++ String.fromInt id)
-//                
-//        ({ model with Entries = List.map updateEntry model.Entries } , Task.attempt (fun _ -> NoOp) focus)
-        ({ model with Entries = List.map updateEntry model.Entries } , Cmd.none)
-    | UpdateEntry (id, task) ->
+        let focus = Html.Dom.focus ("todo-" + (string id))
+        ({ model with Entries = List.map updateEntry model.Entries }, focus)
+    | UpdateEntry(id, task) ->
         let
             updateEntry t =
                 if t.Id = id then
                     { t with Description = task }
                 else
                     t
-        ( { model with Entries = List.map updateEntry model.Entries } , Cmd.none )
+        ({ model with Entries = List.map updateEntry model.Entries }, Cmd.none)
     | Delete id ->
-            ( { model with Entries = List.filter (fun t -> t.Id <> id) model.Entries } , Cmd.none )
+            ({ model with Entries = List.filter (fun t -> t.Id <> id) model.Entries }, Cmd.none)
     | DeleteComplete ->
-            ( { model with Entries = List.filter (fun t -> not t.Completed) model.Entries } , Cmd.none )
-    | Check (id, isCompleted) ->
+            ({ model with Entries = List.filter (fun t -> not t.Completed) model.Entries }, Cmd.none)
+    | Check(id, isCompleted) ->
         let updateEntry t =
             if t.Id = id then
                 { t with Completed = isCompleted }
             else
                 t
-        ( { model with Entries = List.map updateEntry model.Entries } , Cmd.none )
+        ({ model with Entries = List.map updateEntry model.Entries }, Cmd.none)
     | CheckAll isCompleted ->
         let updateEntry t =
             { t with Completed = isCompleted }
-        ( { model with Entries = List.map updateEntry model.Entries } , Cmd.none )
+        ({ model with Entries = List.map updateEntry model.Entries }, Cmd.none)
     | ChangeVisibility visibility ->
-        ( { model with Visibility = visibility } , Cmd.none )
+        ({ model with Visibility = visibility }, Cmd.none)
 
 // VIEW
 
@@ -119,27 +113,22 @@ open Html
 open Microsoft.AspNetCore.Components
 
 let onEnter msg nop =
-    let inner (event: UIKeyboardEventArgs) =
+    let inner (event : UIKeyboardEventArgs) =
         if event.Code = "Enter" then
             msg
         else
             nop
-        
+
     Html.onKeyDown inner
 
-let viewInput (task: string) =
+let viewInput (task : string) =
     header [ className "header" ] [
         h1 [] [ str "todos" ]
-        input [ className "new-todo"; _type "text"; placeholder "What needs to be done?"; autoFocus; value task; name "newTodo"; onInput UpdateField; onEnter Add NoOp ]
+        input [ className "new-todo"; _type "text"; placeholder "What needs to be done?"; value task; name "newTodo"; onInput UpdateField; onEnter Add NoOp ]
     ]
-   
-
 
 // VIEW CONTROLS AND FOOTER
 
-
-
-//viewControlsCount : Int -> Html Msg
 let viewControlsCount entriesLeft =
     let item_ =
         if entriesLeft = 1 then
@@ -151,12 +140,12 @@ let viewControlsCount entriesLeft =
         str (item_ + " left")
     ]
 
-let visibilitySwap (uri: string) (visibility: string) (actualVisibility: string) =
+let visibilitySwap (uri : string) (visibility : string) (actualVisibility : string) =
     li [ onClick (ChangeVisibility visibility) ] [
-            a [ href uri; classList [ ( "selected", visibility = actualVisibility ) ] ] [ str visibility ]
+            a [ href uri; classList [ ("selected", visibility = actualVisibility) ] ] [ str visibility ]
     ]
 
-let viewControlsFilters (visibility: string) =
+let viewControlsFilters (visibility : string) =
     ul [ className "filters" ] [
         visibilitySwap "#/" "All" visibility
         str " "
@@ -170,45 +159,38 @@ let viewControlsClear entriesCompleted =
         [ str ("Clear completed (" + (string entriesCompleted) + ")")
     ]
 
-let viewControls (visibility: string) (entries: Entry list) =
+let viewControls (visibility : string) (entries : Entry list) =
     let entriesCompleted =
         List.length (List.filter (fun e -> e.Completed) entries)
 
     let entriesLeft =
         List.length entries - entriesCompleted
-    
+
     footer [ className "footer"; hidden (List.isEmpty entries); ] [
         viewControlsCount entriesLeft
         viewControlsFilters visibility
         viewControlsClear entriesCompleted
     ]
-    
+
 // VIEW INDIVIDUAL ENTRIES
 
 
 //viewEntry : Entry -> Html Msg
-let viewEntry (todo: Entry) =
-    li [ classList [ ( "completed", todo.Completed ); ( "editing", todo.Editing ) ] ] [
+let viewEntry (todo : Entry) =
+    li [ classList [ ("completed", todo.Completed); ("editing", todo.Editing) ] ] [
         div [ className "view" ] [
             input [ className "toggle"; _type "checkbox"; _checked todo.Completed; onClick (Check (todo.Id, not todo.Completed)) ]
-            label [ onDoubleClick (EditingEntry (todo.Id, true)) ] [ str todo.Description ]
+            label [ onDoubleClick (EditingEntry(todo.Id, true)) ] [ str todo.Description ]
             button [ className "destroy"; onClick (Delete todo.Id) ] []
         ]
-        input [ className "edit"; value todo.Description; name "title"; id ("todo-" + (string todo.Id)); onInput (fun s -> UpdateEntry (todo.Id, s)); onBlur (EditingEntry (todo.Id, false)); onEnter (EditingEntry (todo.Id, false)) NoOp ]
+        input [ className "edit"; value todo.Description; name "title"; id ("todo-" + (string todo.Id)); onInput (fun s -> UpdateEntry(todo.Id, s)); onBlur (EditingEntry(todo.Id, false)); onEnter (EditingEntry(todo.Id, false)) NoOp ]
     ]
 
-//viewKeyedEntry : Entry -> ( String, Html Msg )
-let viewKeyedEntry (todo: Entry) =
-//    ( string todo.Id, lazy viewEntry todo )
-//    ( string todo.Id, viewEntry todo )
-    viewEntry todo
-
-    
 // VIEW ALL ENTRIES
 
 
 //viewEntries : String -> List Entry -> Html Msg
-let viewEntries (visibility: string) (entries: Entry list) =
+let viewEntries (visibility : string) (entries : Entry list) =
     let isVisible todo =
         match visibility with
         | "Completed" -> todo.Completed
@@ -222,12 +204,11 @@ let viewEntries (visibility: string) (entries: Entry list) =
             "hidden"
         else
             "visible"
-            
+
     section [ className "main"; style (sprintf "visibility: %s" cssVisibility) ] [
-        input [ className "toggle-all"; _type "checkbox"; name "toggle"; _checked allCompleted; onClick (CheckAll (not allCompleted)) ]
+        input [ className "toggle-all"; _type "checkbox"; name "toggle"; _checked allCompleted; onClick (CheckAll(not allCompleted)) ]
         label [ _for "toggle-all" ] [ str "Mark all as complete" ]
-//        Keyed.ul [ className "todo-list" ] <| List.map viewKeyedEntry (List.filter isVisible entries)
-        ul [ className "todo-list" ] <| List.map viewKeyedEntry (List.filter isVisible entries)
+        ul [ className "todo-list" ] <| List.map viewEntry (List.filter isVisible entries)
     ]
 
 let infoFooter =
@@ -247,14 +228,14 @@ let infoFooter =
 //TODO: style in elm?
 
 //view : Model -> Html Msg
-let view (model: Model) =
+let view (model : Model) =
     div [] [
         section [ className "todoapp" ] [
-//todo: lazy
+ //todo: lazy
 //                lazy viewInput model.field
 //                lazy2 viewEntries model.visibility model.entries
 //                lazy2 viewControls model.visibility model.entries
-            
+
             viewInput model.Field
             viewEntries model.Visibility model.Entries
             viewControls model.Visibility model.Entries
