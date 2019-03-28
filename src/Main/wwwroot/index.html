@@ -12,7 +12,9 @@
     <app>Loading...</app>
 
     <script>
-        let focusElement= function(id) {
+        window.focusElement = function(id) {
+            
+            console.log("focusing!", id);
             let element = document.getElementById(id);
             
             if(!element){
