@@ -2,6 +2,7 @@ module Html
 open Microsoft.AspNetCore.Components
 open Microsoft.AspNetCore.Components
 open Microsoft.AspNetCore.Components
+open System.Threading.Tasks
 
 [<RequireQualifiedAccess>]
 type DomAst =
@@ -11,10 +12,10 @@ type DomAst =
 and DomAttribute =
     | String of string * string
     | Bool of string * bool
-    | MouseEvent of string * System.Action<UIMouseEventArgs>
-    | KeyboardEvent of string * System.Action<UIKeyboardEventArgs>
-    | ChangeEvent of string * System.Action<UIChangeEventArgs>
-    | UIEvent of string * System.Action<UIEventArgs>
+    | MouseEvent of string * System.Func<UIMouseEventArgs, Task>
+    | KeyboardEvent of string * System.Func<UIKeyboardEventArgs, Task>
+    | ChangeEvent of string * System.Func<UIChangeEventArgs, Task>
+    | UIEvent of string * System.Func<UIEventArgs, Task>
     
 open Elmish
 
@@ -67,19 +68,18 @@ let convertToProp attr dispatch =
         printf "change"
         let value = e.Value :?> string
         let msg = f value
-        dispatch msg
-        ()
+        dispatch msg |> Async.StartAsTask :> Task
         
     let onClick msg e =
-        dispatch msg
+        dispatch msg |> Async.StartAsTask :> Task
 
     match attr with
-    | OnClick msg -> DomAttribute.MouseEvent ("onclick", System.Action<UIMouseEventArgs> (onClick msg))
-    | OnDoubleClick msg -> DomAttribute.MouseEvent ("ondblclick", System.Action<UIMouseEventArgs> (onClick msg))
-    | OnKeyDown msg -> DomAttribute.KeyboardEvent ("onkeydown", System.Action<UIKeyboardEventArgs> (fun e -> dispatch (msg e)))
+    | OnClick msg -> DomAttribute.MouseEvent ("onclick", System.Func<UIMouseEventArgs, Task> (onClick msg))
+    | OnDoubleClick msg -> DomAttribute.MouseEvent ("ondblclick", System.Func<UIMouseEventArgs, Task> (onClick msg))
+    | OnKeyDown msg -> DomAttribute.KeyboardEvent ("onkeydown", System.Func<UIKeyboardEventArgs, Task> (fun e -> (dispatch (msg e) |> Async.StartAsTask) :> Task))
     | Type t -> DomAttribute.String ("type", t)
     | Value v -> DomAttribute.String ("value", v) //v :> IHTMLProp
-    | OnInput f -> DomAttribute.ChangeEvent ("oninput", System.Action<UIChangeEventArgs>(fun e -> onChangeR e f)) // Props.OnChange (fun e -> onChangeR e f) :> IHTMLProp
+    | OnInput f -> DomAttribute.ChangeEvent ("oninput", System.Func<UIChangeEventArgs, Task>(fun e -> onChangeR e f)) // Props.OnChange (fun e -> onChangeR e f) :> IHTMLProp
     | ClassName cn -> DomAttribute.String ("class", cn)  
     | Placeholder text -> DomAttribute.String ("placeholder", text) 
     | ReadOnly -> DomAttribute.Bool ("readonly", true)
@@ -88,7 +88,7 @@ let convertToProp attr dispatch =
     | AutoFocus -> DomAttribute.Bool ("autofocus", true)
     | Id s -> DomAttribute.String ("id", s)
     | Name s -> DomAttribute.String ("name", s)
-    | OnBlur s -> DomAttribute.UIEvent ("onblur", System.Action<UIEventArgs>(fun e -> dispatch s))
+    | OnBlur s -> DomAttribute.UIEvent ("onblur", System.Func<UIEventArgs, Task>(fun e -> dispatch s|> Async.StartAsTask :> Task))
     | Style s -> DomAttribute.String ("style", s)
     | Checked b -> DomAttribute.Bool ("checked", b)
     | For s -> DomAttribute.String ("for", s)
@@ -171,3 +171,14 @@ let classList (classes: (string * bool) list) =
         |> List.map fst
     
     className (System.String.Join(" ", visibleClasses))
+    
+module Dom =
+    open Microsoft.JSInterop
+
+    let focus (id: string) =
+      let sub _ (f: IJSRuntime) =
+            f.InvokeAsync("focusElement", id) |> Async.AwaitTask
+
+
+                
+      Cmd.ofSub sub

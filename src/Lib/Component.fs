@@ -1,5 +1,8 @@
 module Component
 
+open System.Collections.Generic
+open System.Threading
+open System.Threading.Tasks
 open Html
 open Microsoft.AspNetCore.Components
 open Microsoft.JSInterop
@@ -10,11 +13,13 @@ type ComponentImpl() =
     
     let mutable state = None
     let mutable dispatchL = None
+    let mutable tsc = new TaskCompletionSource<unit>()
     
     override this.OnInit() =
         Program.mkProgram App2.init App2.update App2.view
         |> Program.withSetState this.SetState
-        |> Program.runWith None ()
+        |> Program.runWith None this.JsInterop
+        |> Async.StartImmediate
         ()
         
     member this.SetState model dispatch =
@@ -22,6 +27,7 @@ type ComponentImpl() =
         System.Console.WriteLine(model)
         dispatchL <- Some dispatch
         base.StateHasChanged()
+        tsc.Task |> Async.AwaitTask
         
     [<Inject>]
     member val JsInterop: IJSRuntime = null with get, set
@@ -29,6 +35,10 @@ type ComponentImpl() =
     member this.FocusElement (id: string) =
         this.JsInterop.InvokeAsync("focusElement", id)
     
+    override this.OnAfterRender() =
+        if not tsc.Task.IsCompleted then
+            tsc.SetResult(())
+
     override this.BuildRenderTree(renderTreeBuilder) =
         base.BuildRenderTree(renderTreeBuilder)
         
