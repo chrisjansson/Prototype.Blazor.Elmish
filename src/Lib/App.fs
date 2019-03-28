@@ -128,7 +128,6 @@ let viewInput (task : string) =
     ]
 
 // VIEW CONTROLS AND FOOTER
-
 let viewControlsCount entriesLeft =
     let item_ =
         if entriesLeft = 1 then
@@ -173,9 +172,6 @@ let viewControls (visibility : string) (entries : Entry list) =
     ]
 
 // VIEW INDIVIDUAL ENTRIES
-
-
-//viewEntry : Entry -> Html Msg
 let viewEntry (todo : Entry) =
     li [ classList [ ("completed", todo.Completed); ("editing", todo.Editing) ] ] [
         div [ className "view" ] [
@@ -187,9 +183,6 @@ let viewEntry (todo : Entry) =
     ]
 
 // VIEW ALL ENTRIES
-
-
-//viewEntries : String -> List Entry -> Html Msg
 let viewEntries (visibility : string) (entries : Entry list) =
     let isVisible todo =
         match visibility with
@@ -224,10 +217,6 @@ let infoFooter =
         ]
     ]
 
-
-//TODO: style in elm?
-
-//view : Model -> Html Msg
 let view (model : Model) =
     div [] [
         section [ className "todoapp" ] [
@@ -235,7 +224,6 @@ let view (model : Model) =
 //                lazy viewInput model.field
 //                lazy2 viewEntries model.visibility model.entries
 //                lazy2 viewControls model.visibility model.entries
-
             viewInput model.Field
             viewEntries model.Visibility model.Entries
             viewControls model.Visibility model.Entries
