@@ -68,6 +68,13 @@ type ComponentImpl() =
                         render child
                 
                 renderTreeBuilder.CloseElement()
+            | DomAst.Component (c, attributes) ->
+                renderTreeBuilder.OpenComponent(seq (), c)
+                
+                for (n, v) in attributes do
+                    renderTreeBuilder.AddAttribute(seq(), n, v)
+                
+                renderTreeBuilder.CloseComponent()
         
         match (state, dispatchL) with
         | Some s, Some d -> render (App2.view s d)

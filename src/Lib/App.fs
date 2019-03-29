@@ -220,13 +220,9 @@ let infoFooter =
 let view (model : Model) =
     div [] [
         section [ className "todoapp" ] [
- //todo: lazy
-//                lazy viewInput model.field
-//                lazy2 viewEntries model.visibility model.entries
-//                lazy2 viewControls model.visibility model.entries
-            viewInput model.Field
-            viewEntries model.Visibility model.Entries
-            viewControls model.Visibility model.Entries
+            Html.lazy1 viewInput model.Field
+            Html.lazy2 viewEntries model.Visibility model.Entries
+            Html.lazy2 viewControls model.Visibility model.Entries
         ]
         infoFooter
     ]

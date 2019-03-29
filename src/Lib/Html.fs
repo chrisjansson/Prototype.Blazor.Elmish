@@ -8,6 +8,7 @@ open System.Threading.Tasks
 type DomAst =
     | Content of string
     | Element of string * DomAttribute array * (DomAst seq)
+    | Component of System.Type * ((string * obj) list)
 
 and DomAttribute =
     | String of string * string
@@ -17,6 +18,7 @@ and DomAttribute =
     | ChangeEvent of string * System.Func<UIChangeEventArgs, Task>
     | UIEvent of string * System.Func<UIEventArgs, Task>
     
+open System
 open Elmish
 
 type Attr<'msg> = 
@@ -164,6 +166,81 @@ let runChildren (children: Html<'msg> seq) (dispatch: Dispatch<'msg>) = applyDis
 let map (mapper: 'msgA -> 'msgB) (html: Html<'msgA>): Html<'msgB> =
     fun d -> html (fun m -> d (mapper m))
 
+type LazyComponent<'model, 'msg when 'model : equality>()  =
+    inherit ComponentBase()
+
+    let mutable oldModel = Unchecked.defaultof<'model>
+    
+    [<Parameter>]
+    member val Model = Unchecked.defaultof<'model> with get, set
+
+    [<Parameter>]    
+    member val View = Unchecked.defaultof<'model -> Html<'msg>> with get, set
+    
+    [<Parameter>]    
+    member val Dispatch = Unchecked.defaultof<Dispatch<'msg>> with get, set
+
+    override this.ShouldRender() =
+        oldModel <> this.Model
+
+    override this.OnAfterRender() =
+        oldModel <- this.Model
+            
+    override this.BuildRenderTree(renderTreeBuilder) =
+        printfn "render!!"
+        base.BuildRenderTree(renderTreeBuilder)
+        
+        let seq () =
+            let mutable v = 0
+            let toUse = v
+            v <- v + 1
+            toUse
+        
+        let rec render dom =
+            match dom with
+            | DomAst.Content s ->
+                renderTreeBuilder.AddContent(seq (), s)
+            | DomAst.Element (el, attributes, children) ->
+                renderTreeBuilder.OpenElement(seq (), el)
+                
+                for attribute in attributes do
+                    match attribute with
+                    | DomAttribute.String (attr, v) -> renderTreeBuilder.AddAttribute(seq (), attr, v)
+                    | DomAttribute.Bool (attr, v) -> renderTreeBuilder.AddAttribute(seq(), attr, v)
+                    | DomAttribute.MouseEvent (evnt, handler) -> renderTreeBuilder.AddAttribute(seq(), evnt, handler)
+                    | DomAttribute.ChangeEvent (evnt, handler) -> renderTreeBuilder.AddAttribute(seq(), evnt, handler)
+                    | DomAttribute.KeyboardEvent (evnt, handler) -> renderTreeBuilder.AddAttribute(seq(), evnt, handler)
+                    | DomAttribute.UIEvent (evnt, handler) -> renderTreeBuilder.AddAttribute(seq(), evnt, handler)
+                    
+                for child in children do
+                        render child
+                
+                renderTreeBuilder.CloseElement()
+            | DomAst.Component (c, attributes) ->
+                renderTreeBuilder.OpenComponent(seq (), c)
+                
+                for (n, v) in attributes do
+                    renderTreeBuilder.AddAttribute(seq(), n, v)
+                
+                renderTreeBuilder.CloseComponent()
+    
+        if this.Model = Unchecked.defaultof<'model> || Object.ReferenceEquals(this.Dispatch, Unchecked.defaultof<Dispatch<'msg>>) then
+            ()
+        else
+            render (this.View this.Model this.Dispatch)
+
+
+let lazy1<'msg, 'model when 'model : equality> (view: 'model -> Html<'msg>) (model: 'model): Html<'msg> =
+    let t = typeof<LazyComponent<'model, 'msg>>
+    fun d -> DomAst.Component (t, [ "View", view :> obj; "Model", model :> obj; "Dispatch", d :> obj ])
+    
+    
+let lazy2<'msg, 'm1, 'm2 when 'm1 : equality and 'm2 : equality> (view: 'm1 -> 'm2 -> Html<'msg>) (m1: 'm1) (m2: 'm2): Html<'msg> =
+    let t = typeof<LazyComponent<'m1 * 'm2, 'msg>>
+    let v (m1, m2) = view m1 m2
+    let m = m1, m2
+    fun d -> DomAst.Component (t, [ "View", v :> obj; "Model", m :> obj; "Dispatch", d :> obj ])
+    
 let classList (classes: (string * bool) list) =
     let visibleClasses =
         classes
@@ -178,7 +255,4 @@ module Dom =
     let focus (id: string) =
       let sub _ (f: IJSRuntime) =
             f.InvokeAsync("focusElement", id) |> Async.AwaitTask
-
-
-                
       Cmd.ofSub sub
