@@ -209,7 +209,7 @@ let infoFooter =
         p [] [ str "Double-click to edit a todo" ]
         p [] [
             str "Written by "
-            a [ href "https://github.com/evancz" ] [ str "Evan Czaplicki" ]
+            a [ href "https://github.com/chrisjansson" ] [ str "Chris Jansson" ]
         ]
         p [] [
             str "Part of "
